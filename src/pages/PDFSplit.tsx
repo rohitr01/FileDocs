@@ -210,7 +210,7 @@ export default function PDFSplit() {
               {mode === 'multi_range' && (
                 <div className="space-y-2">
                   <label className="text-xs text-slate-400 font-medium">Custom Ranges</label>
-                  {multiRanges.map((r, i) => (
+                  {multiRanges.map((r) => (
                     <div key={r.id} className="flex items-center gap-2">
                       <input type="number" min="1" max={total} value={r.start}
                         onChange={e => updateRange(r.id, 'start', parseInt(e.target.value) || 1)}
