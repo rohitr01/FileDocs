@@ -37,6 +37,10 @@ import PDFUnlock from './pages/PDFUnlock'
 import PDFProtect from './pages/PDFProtect'
 import PDFEdit from './pages/PDFEdit'
 import ImageRemoveBg from './pages/ImageRemoveBg'
+import OCRExtractor from './pages/OCRExtractor'
+import MetadataStripper from './pages/MetadataStripper'
+import SmartRedaction from './pages/SmartRedaction'
+import DocumentScanner from './pages/DocumentScanner'
 
 const PDF_TOOLS = [
   { name: 'Merge PDF', path: '/pdf/merge' },
@@ -60,6 +64,9 @@ const IMAGE_TOOLS = [
   { name: 'Resize Signature', path: '/image/resize-signature' },
   { name: 'Photo + Sign Merge', path: '/image/photo-sign-merge' },
   { name: 'Photo Text Labeler', path: '/image/photo-text-labeler' },
+  { name: 'OCR - Text Extractor', path: '/image/ocr' },
+  { name: 'Metadata Stripper', path: '/image/metadata-stripper' },
+  { name: 'Smart Redaction', path: '/image/redaction' },
 ];
 
 function App() {
@@ -140,6 +147,10 @@ function App() {
           <Route path="/image/resize-signature" element={<SignatureResize />} />
           <Route path="/image/photo-sign-merge" element={<PhotoSignMerge />} />
           <Route path="/image/photo-text-labeler" element={<PhotoTextOverlay />} />
+          <Route path="/image/ocr" element={<OCRExtractor />} />
+          <Route path="/image/metadata-stripper" element={<MetadataStripper />} />
+          <Route path="/image/redaction" element={<SmartRedaction />} />
+          <Route path="/image/scanner" element={<DocumentScanner />} />
           
           <Route path="/pdf/merge" element={<PDFMerge />} />
           <Route path="/pdf/split" element={<PDFSplit />} />

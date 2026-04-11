@@ -4,7 +4,7 @@ import {
   FileText, Image as ImageIcon, FormInput, ArrowRight, Minimize,
   SplitSquareHorizontal, Layers, FileImage, ShieldCheck, Crop,
   RotateCw, Expand, UserCircle, PenTool, Hash, Edit3,
-  Lock, Unlock, BringToFront, Scissors, Search, Layout, Type
+  Lock, Unlock, BringToFront, Scissors, Search, Layout, Type, Eraser, Camera
 } from 'lucide-react';
 
 const TOOLS = [
@@ -45,6 +45,10 @@ const TOOLS = [
       { id: "sig-resize", name: "Signature Resizer", desc: "Auto-crop & scale signs for forms.", icon: Expand, path: "/image/resize-signature", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "photo-sign-merge", name: "Photo + Sign Merge", desc: "Combine photo and signature into one image.", icon: Layout, path: "/image/photo-sign-merge", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "photo-text-overlay", name: "Photo Text Labeler", desc: "Add Name and DOB text stickers to photos.", icon: Type, path: "/image/photo-text-labeler", color: "text-blue-400", bg: "bg-blue-400/10" },
+      { id: "ocr-extract", name: "OCR Extractor", desc: "Extract editable text from images and docs instantly.", icon: FileText, path: "/image/ocr", color: "text-blue-400", bg: "bg-blue-400/10" },
+      { id: "metadata-stripper", name: "Privacy Stripper", desc: "Wipe GPS and camera EXIF data from your photos.", icon: ShieldCheck, path: "/image/metadata-stripper", color: "text-blue-400", bg: "bg-blue-400/10" },
+      { id: "smart-redaction", name: "Smart Redaction", desc: "Draw to permanently blackout sensitive data in images.", icon: Eraser, path: "/image/redaction", color: "text-blue-400", bg: "bg-blue-400/10" },
+      { id: "doc-scanner", name: "Document Scanner", desc: "Capture high-contrast scans using your camera.", icon: Camera, path: "/image/scanner", color: "text-blue-400", bg: "bg-blue-400/10" },
     ]
   },
   {
