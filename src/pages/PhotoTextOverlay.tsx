@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Download, Trash2, Type, Calendar, Settings2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
 
 export default function PhotoTextOverlay() {
   const [, setFile] = useState<File | null>(null);
@@ -27,7 +28,7 @@ export default function PhotoTextOverlay() {
   const handleProcess = async () => {
     if (!preview || !imgRef.current) return;
     setIsProcessing(true);
-    
+
     try {
       const img = imgRef.current;
       const canvas = document.createElement('canvas');
@@ -42,12 +43,12 @@ export default function PhotoTextOverlay() {
         const overlayHeight = Math.round(canvas.height * 0.2);
         ctx.fillStyle = `rgba(0, 0, 0, ${tagOpacity})`;
         ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight);
-        
+
         ctx.fillStyle = '#ffffff';
         const dynamicFontSize = Math.round(overlayHeight * (fontSize / 100));
         ctx.font = `bold ${dynamicFontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
-        
+
         if (name && dob) {
           ctx.fillText(name.toUpperCase(), canvas.width / 2, canvas.height - (overlayHeight * 0.55));
           ctx.font = `${Math.round(dynamicFontSize * 0.7)}px Inter, sans-serif`;
@@ -58,13 +59,20 @@ export default function PhotoTextOverlay() {
       }
 
       setResultUrl(canvas.toDataURL('image/jpeg', 0.95));
-    } catch(e) {
+    } catch (e) {
       console.error(e);
       alert("Processing failed.");
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    onDrop,
+    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
+    maxFiles: 1,
+    noClick: true
+  });
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 py-8 px-4">
@@ -76,33 +84,48 @@ export default function PhotoTextOverlay() {
       <AnimatePresence mode="wait">
         {!preview ? (
           <motion.div key="drop" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div 
-              {...useDropzone({ onDrop, accept: { 'image/*': [] }, maxFiles: 1 }).getRootProps()}
-              className="border-2 border-dashed border-slate-700 rounded-3xl p-16 flex flex-col items-center justify-center gap-6 cursor-pointer bg-slate-800/20 hover:border-indigo-400 transition-all"
+            <div
+              {...getRootProps()}
+              className={cn(
+                "border-2 border-dashed rounded-[2.5rem] p-16 flex flex-col items-center justify-center gap-6 cursor-pointer transition-all duration-300 group min-h-[400px]",
+                isDragActive ? "border-indigo-400 bg-indigo-400/10 scale-[1.02] shadow-2xl" : "border-slate-700 bg-slate-800/20 hover:border-indigo-500 hover:bg-slate-800/40"
+              )}
+              onClick={open}
             >
-              <input {...useDropzone({ onDrop, accept: { 'image/*': [] }, maxFiles: 1 }).getInputProps()} />
-              <div className="bg-indigo-500/20 p-6 rounded-full"><Upload className="w-12 h-12 text-indigo-400" /></div>
-              <p className="text-xl font-medium text-slate-200">Upload Portrait Photo</p>
+              <input {...getInputProps()} />
+              <div className="bg-indigo-500/20 p-8 rounded-[2rem] group-hover:scale-110 transition-transform shadow-xl">
+                <Upload className="w-12 h-12 text-indigo-400" />
+              </div>
+              <div className="text-center space-y-4">
+                <p className="text-2xl font-bold text-slate-200">Upload Portrait Photo</p>
+                <button
+                  onClick={open}
+                  className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                >
+                  Select Image
+                </button>
+                <p className="text-xs text-slate-500 uppercase tracking-widest font-black">PNG, JPG, WEBP • Max 10MB</p>
+              </div>
             </div>
           </motion.div>
         ) : (
           <motion.div key="edit" className="grid lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1 border border-white/5 bg-slate-800/40 rounded-3xl p-6 h-fit space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="w-5 h-5 text-indigo-400"/> Settings</h3>
-                <button onClick={() => setPreview(null)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-5 h-5"/></button>
+                <h3 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="w-5 h-5 text-indigo-400" /> Settings</h3>
+                <button onClick={() => setPreview(null)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-5 h-5" /></button>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Type className="w-3 h-3"/> Full Name</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Type className="w-3 h-3" /> Full Name</label>
                   <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. RAJESH KUMAR" className="w-full bg-black/40 border border-slate-700 rounded-lg p-3 text-white text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Calendar className="w-3 h-3"/> D.O.B / Date</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Calendar className="w-3 h-3" /> D.O.B / Date</label>
                   <input type="text" value={dob} onChange={e => setDob(e.target.value)} placeholder="e.g. 15/08/1995" className="w-full bg-black/40 border border-slate-700 rounded-lg p-3 text-white text-sm" />
                 </div>
-                
+
                 <div className="space-y-2 pt-2">
                   <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
                     <label>Font Size</label>
@@ -120,7 +143,7 @@ export default function PhotoTextOverlay() {
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={handleProcess}
                 disabled={isProcessing}
                 className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black shadow-xl shadow-indigo-500/20 transition-all"
@@ -130,7 +153,7 @@ export default function PhotoTextOverlay() {
 
               {resultUrl && (
                 <a href={resultUrl} download="identity_labeled.jpg" className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-green-500/10 transition-all" rel="noreferrer">
-                  <Download className="w-5 h-5"/> Download Result
+                  <Download className="w-5 h-5" /> Download Result
                 </a>
               )}
             </div>
@@ -139,13 +162,13 @@ export default function PhotoTextOverlay() {
               <div className="bg-black/40 border border-white/5 rounded-[2rem] p-6 h-[500px] flex items-center justify-center overflow-hidden relative">
                 <img ref={imgRef} src={preview} alt="Upload" className="max-w-full max-h-full object-contain shadow-2xl" />
               </div>
-              
+
               {resultUrl && (
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                   <h4 className="text-sm font-bold text-slate-400 uppercase mb-4">Output Preview</h4>
-                   <div className="flex justify-center bg-black/20 p-4 rounded-xl">
-                      <img src={resultUrl} alt="Result" className="max-h-[300px] shadow-xl" />
-                   </div>
+                  <h4 className="text-sm font-bold text-slate-400 uppercase mb-4">Output Preview</h4>
+                  <div className="flex justify-center bg-black/20 p-4 rounded-xl">
+                    <img src={resultUrl} alt="Result" className="max-h-[300px] shadow-xl" />
+                  </div>
                 </div>
               )}
             </div>

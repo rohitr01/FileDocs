@@ -43,21 +43,24 @@ const TOOLS = [
       { id: "img-rotate", name: "Rotate Image", desc: "Flip and rotate images instantly.", icon: RotateCw, path: "/image/rotate", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "sig-gen", name: "Generate Signature", desc: "Create handwritten signatures with transparent backgrounds.", icon: PenTool, path: "/generate-signature", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "sig-resize", name: "Signature Resizer", desc: "Auto-crop & scale signs for forms.", icon: Expand, path: "/image/resize-signature", color: "text-blue-400", bg: "bg-blue-400/10" },
-      { id: "photo-sign-merge", name: "Photo + Sign Merge", desc: "Combine photo and signature into one image.", icon: Layout, path: "/image/photo-sign-merge", color: "text-blue-400", bg: "bg-blue-400/10" },
-      { id: "photo-text-overlay", name: "Photo Text Labeler", desc: "Add Name and DOB text stickers to photos.", icon: Type, path: "/image/photo-text-labeler", color: "text-blue-400", bg: "bg-blue-400/10" },
+      { id: "photo-sign-merge", name: "Photo and Sign Merger", desc: "Combine your Portrait Photo and Signature into a single file for form uploads.", icon: Layout, path: "/image/photo-sign-merge", color: "text-blue-400", bg: "bg-blue-400/10" },
+      { id: "photo-text-overlay", name: "Identity Labeler", desc: "Add Name and Date of Birth stickers directly onto your photos for exam forms.", icon: Type, path: "/image/photo-text-labeler", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "ocr-extract", name: "OCR Extractor", desc: "Extract editable text from images and docs instantly.", icon: FileText, path: "/image/ocr", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "metadata-stripper", name: "Privacy Stripper", desc: "Wipe GPS and camera EXIF data from your photos.", icon: ShieldCheck, path: "/image/metadata-stripper", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "smart-redaction", name: "Smart Redaction", desc: "Draw to permanently blackout sensitive data in images.", icon: Eraser, path: "/image/redaction", color: "text-blue-400", bg: "bg-blue-400/10" },
       { id: "doc-scanner", name: "Document Scanner", desc: "Capture high-contrast scans using your camera.", icon: Camera, path: "/image/scanner", color: "text-blue-400", bg: "bg-blue-400/10" },
-    ]
-  },
-  {
-    category: "Special Features",
-    icon: <FormInput className="w-5 h-5 text-indigo-400" />,
-    items: [
       { id: "form-helper", name: "Form Helper System", desc: "Auto-resize and compress photos/signatures to exact Government Form standards (SSC, DSSSB, etc).", icon: FileImage, path: "/form-helper", color: "text-indigo-400", bg: "bg-indigo-400/10" },
     ]
-  }
+  },
+];
+
+const POPULAR_TOOLS = [
+  { id: "pdf-merge", name: "Merge PDF", path: "/pdf/merge", icon: Layers, color: "text-red-400", bg: "bg-red-400/10" },
+  { id: "img-remove-bg", name: "Remove BG", path: "/image/remove-bg", icon: Scissors, color: "text-blue-400", bg: "bg-blue-400/10" },
+  { id: "photo-sign-merge", name: "Photo and Sign Merger", path: "/image/photo-sign-merge", icon: Layout, color: "text-blue-400", bg: "bg-blue-400/10" },
+  { id: "img-compress", name: "Compress", path: "/image/compress", icon: Minimize, color: "text-blue-400", bg: "bg-blue-400/10" },
+  { id: "img-to-pdf", name: "Image to PDF", path: "/image/to-pdf", icon: FileText, color: "text-blue-400", bg: "bg-blue-400/10" },
+  { id: "form-helper", name: "Form Helper", path: "/form-helper", icon: FileImage, color: "text-indigo-400", bg: "bg-indigo-400/10" },
 ];
 
 export default function Home() {
@@ -111,6 +114,29 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      {!searchQuery && (
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <BringToFront className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-2xl font-bold text-white">Popular Tools</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {POPULAR_TOOLS.map((tool) => (
+              <Link
+                key={tool.id}
+                to={tool.path}
+                className="group bg-white/5 border border-white/10 p-4 rounded-2xl hover:bg-white/10 transition-all hover:scale-[1.02] flex flex-col items-center text-center gap-3"
+              >
+                <div className={`p-3 rounded-xl ${tool.bg} ${tool.color} group-hover:scale-110 transition-transform`}>
+                  <tool.icon className="w-6 h-6" />
+                </div>
+                <span className="text-sm font-semibold text-slate-200 group-hover:text-indigo-300 transition-colors line-clamp-1">{tool.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="space-y-12">
         {filteredTools.length > 0 ? (

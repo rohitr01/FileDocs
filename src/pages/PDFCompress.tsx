@@ -1,11 +1,22 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { PDFDocument } from 'pdf-lib';
-import { Upload, Download, FileArchive, Settings2, Trash2, TrendingDown, Zap, Shield } from 'lucide-react';
+import { Upload, Download, FileArchive, Settings2, Trash2, TrendingDown, Zap, Shield, CheckCircle2, AlertCircle, Loader2, FileText, ArrowRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type CompressMode = 'basic' | 'standard' | 'aggressive' | 'extreme';
+
+interface CompressItem {
+  id: string;
+  file: File;
+  previewUrl: string | null;
+  resultUrl: string | null;
+  status: 'idle' | 'compressing' | 'done' | 'error';
+  oldSize: number;
+  newSize: number;
+  savedPct: number;
+}
 
 const MODE_INFO: Record<CompressMode, { label: string; desc: string; icon: React.ReactNode; color: string }> = {
   basic:      { label: 'Basic Rebuild',   desc: 'Safe rewrite — removes revision bloat only', icon: <Shield className="w-4 h-4" />,      color: 'blue' },
@@ -21,41 +32,44 @@ function fmtSize(bytes: number) {
 }
 
 export default function PDFCompress() {
-  const [file, setFile] = useState<File | null>(null);
-  const [pdfPreview, setPdfPreview] = useState<string | null>(null);
-  const [processUrl, setProcessUrl] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [oldSize, setOldSize] = useState(0);
-  const [newSize, setNewSize] = useState(0);
+  const [items, setItems] = useState<CompressItem[]>([]);
+  const [isProcessingAll, setIsProcessingAll] = useState(false);
   const [compressionMode, setCompressionMode] = useState<CompressMode>('standard');
   const [stripAnnotations, setStripAnnotations] = useState(false);
   const [stripBookmarks, setStripBookmarks] = useState(false);
-  const [grayscale, setGrayscale] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      const f = acceptedFiles[0];
-      setFile(f);
-      setPdfPreview(URL.createObjectURL(f));
-      setProcessUrl(null);
-      setOldSize(f.size);
-      setNewSize(0);
-    }
+    const newItems: CompressItem[] = acceptedFiles.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      resultUrl: null,
+      status: 'idle',
+      oldSize: file.size,
+      newSize: 0,
+      savedPct: 0
+    }));
+    setItems(prev => [...prev, ...newItems]);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'application/pdf': ['.pdf'] }, maxFiles: 1,
+    onDrop, 
+    accept: { 'application/pdf': ['.pdf'] },
+    multiple: true
   });
 
-  const handleApply = async () => {
-    if (!file) return;
-    setIsProcessing(true);
+  const compressItem = async (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (!item || item.status === 'compressing') return;
+
+    setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'compressing' } : i));
+
     try {
-      const ab = await file.arrayBuffer();
+      const ab = await item.file.arrayBuffer();
       const src = await PDFDocument.load(ab, { ignoreEncryption: true });
 
       // Strip metadata based on mode
-      if (compressionMode === 'standard' || compressionMode === 'aggressive' || compressionMode === 'extreme') {
+      if (compressionMode !== 'basic') {
         src.setTitle(''); src.setAuthor(''); src.setSubject('');
         src.setKeywords([]); src.setProducer(''); src.setCreationDate(new Date(0));
       }
@@ -75,66 +89,83 @@ export default function PDFCompress() {
       // Save options mapped to mode
       const saveOpts: any = { useObjectStreams: true };
       if (compressionMode === 'extreme') saveOpts.useObjectStreams = false;
-      if (compressionMode === 'basic') { saveOpts.useObjectStreams = true; saveOpts.addDefaultPage = false; }
+      if (compressionMode === 'basic') { saveOpts.useObjectStreams = true; }
 
       const bytes = await out.save(saveOpts);
-      setNewSize(bytes.byteLength);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const newSize = bytes.byteLength;
+      const savedPct = Math.max(0, Math.round((1 - newSize / item.oldSize) * 100));
 
-      const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
-      setProcessUrl(URL.createObjectURL(blob));
+      setItems(prev => prev.map(i => i.id === id ? { 
+        ...i, 
+        resultUrl: url, 
+        status: 'done',
+        newSize,
+        savedPct
+      } : i));
     } catch (e) {
       console.error(e);
-      alert('Failed to compress PDF.');
-    } finally {
-      setIsProcessing(false);
+      setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'error' } : i));
     }
   };
 
-  const removeFile = () => { setFile(null); setPdfPreview(null); setProcessUrl(null); setOldSize(0); setNewSize(0); };
+  const handleBatchCompress = async () => {
+    setIsProcessingAll(true);
+    const idleItems = items.filter(i => i.status !== 'done');
+    for (const item of idleItems) {
+      await compressItem(item.id);
+    }
+    setIsProcessingAll(false);
+  };
 
-  const savedPct = oldSize > 0 && newSize > 0 ? Math.max(0, Math.round((1 - newSize / oldSize) * 100)) : 0;
+  const removeItem = (id: string) => {
+    setItems(prev => {
+      const item = prev.find(i => i.id === id);
+      if (item) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
+      }
+      return prev.filter(i => i.id !== id);
+    });
+  };
+
+  const downloadAll = () => {
+    items.forEach(item => {
+      if (item.resultUrl) {
+        const link = document.createElement('a');
+        link.href = item.resultUrl;
+        link.download = `compressed_${item.file.name}`;
+        link.click();
+      }
+    });
+  };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 py-8">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 py-8 px-4">
       <div className="text-center space-y-3">
-        <h1 className="text-4xl font-extrabold text-white">PDF Compress</h1>
-        <p className="text-slate-400">Reduce file size by stripping hidden bloat — 100% client-side.</p>
+        <h1 className="text-4xl font-extrabold text-white tracking-tight">Batch PDF Compress</h1>
+        <p className="text-slate-400">Reduce file size for multiple PDFs by stripping hidden bloat — 100% client-side.</p>
       </div>
 
-      <AnimatePresence mode="wait">
-        {!file ? (
-          <motion.div key="drop" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
-            <div {...getRootProps()} className={cn(
-              "border-2 border-dashed rounded-3xl p-16 flex flex-col items-center justify-center gap-6 cursor-pointer bg-slate-800/30 transition-all duration-300",
-              isDragActive ? "border-red-400 bg-red-400/10 scale-105" : "border-slate-700 hover:border-slate-500 hover:bg-slate-800/50"
-            )}>
-              <input {...getInputProps()} />
-              <div className="bg-red-500/20 p-6 rounded-full"><Upload className="w-12 h-12 text-red-400" /></div>
-              <p className="text-xl font-medium text-slate-200">Drag & drop your PDF</p>
-              <p className="text-sm text-slate-500">Works on any PDF — no size limit</p>
+      <div className="grid lg:grid-cols-4 gap-8">
+        {/* Sidebar / Settings */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-slate-800/30 border border-white/5 rounded-3xl p-6 space-y-8 sticky top-24">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="w-5 h-5 text-red-400" /> Settings</h3>
+              {items.length > 0 && (
+                <button onClick={() => setItems([])} className="text-xs text-red-400 hover:underline">Clear All</button>
+              )}
             </div>
-          </motion.div>
-        ) : (
-          <motion.div key="edit" className="grid lg:grid-cols-4 gap-8">
-            {/* Sidebar */}
-            <div className="lg:col-span-1 border border-white/5 bg-slate-800/30 rounded-3xl p-6 h-fit space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="w-5 h-5 text-red-400" /> Compress Settings</h3>
-                <button onClick={removeFile} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-5 h-5" /></button>
-              </div>
 
-              <div className="bg-slate-900/60 border border-white/5 rounded-xl p-3 text-xs text-slate-400">
-                📄 <span className="text-white font-semibold truncate">{file.name}</span>
-                <span className="ml-2 text-slate-500">{fmtSize(oldSize)}</span>
-              </div>
-
-              {/* Mode cards */}
+            <div className="space-y-4">
+              <label className="text-sm font-medium text-slate-300">Compression Level</label>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-300">Compression Level</label>
                 {(Object.keys(MODE_INFO) as CompressMode[]).map(m => {
                   const info = MODE_INFO[m];
                   return (
-                    <button key={m} onClick={() => { setCompressionMode(m); setProcessUrl(null); }}
+                    <button key={m} onClick={() => setCompressionMode(m)}
                       className={cn(
                         "w-full text-left px-3 py-2.5 rounded-xl border transition-all flex items-start gap-3",
                         compressionMode === m
@@ -150,94 +181,100 @@ export default function PDFCompress() {
                   );
                 })}
               </div>
+            </div>
 
-              {/* Advanced toggles */}
-              <div className="space-y-3 border-t border-white/10 pt-4">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Options</p>
-                {[
-                  { label: 'Strip Annotations', val: stripAnnotations, set: setStripAnnotations, desc: 'Remove comments & highlights' },
-                  { label: 'Strip Bookmarks', val: stripBookmarks, set: setStripBookmarks, desc: 'Remove outline/TOC entries' },
-                  { label: 'Grayscale Preview', val: grayscale, set: setGrayscale, desc: 'Visual reference only — save size' },
-                ].map(({ label, val, set, desc }) => (
-                  <label key={label} className="flex items-start gap-3 cursor-pointer group">
-                    <div className={cn("w-9 h-5 rounded-full flex-shrink-0 mt-0.5 relative transition-colors", val ? "bg-red-600" : "bg-slate-700")}
-                      onClick={() => { set(!val); setProcessUrl(null); }}>
-                      <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all", val ? "left-4" : "left-0.5")} />
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-300 group-hover:text-white">{label}</p>
-                      <p className="text-[10px] text-slate-500">{desc}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-
-              <button onClick={handleApply} disabled={isProcessing}
-                className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-                <FileArchive className="w-4 h-4" />
-                {isProcessing ? 'Compressing...' : 'Compress PDF'}
+            <div className="space-y-3 pt-4 border-t border-white/10">
+              <button onClick={handleBatchCompress} disabled={items.length === 0 || isProcessingAll}
+                className="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-bold transition-all disabled:opacity-50 active:scale-95 shadow-lg shadow-red-500/20">
+                {isProcessingAll ? "Compressing..." : items.some(i => i.status === 'done') ? "Compress Remaining" : "Compress All"}
               </button>
-
-              {/* Result stats */}
-              {processUrl && newSize > 0 && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="pt-4 border-t border-white/10 space-y-3">
-                  <div className="bg-black/40 rounded-xl p-4 space-y-3">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Original</span>
-                      <span className="text-red-400 font-mono font-bold">{fmtSize(oldSize)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Compressed</span>
-                      <span className="text-green-400 font-mono font-bold">{fmtSize(newSize)}</span>
-                    </div>
-                    <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-700"
-                        style={{ width: `${100 - savedPct}%` }} />
-                    </div>
-                    <div className="text-center text-sm font-bold">
-                      {savedPct > 0
-                        ? <span className="text-green-400">↓ {savedPct}% smaller</span>
-                        : <span className="text-amber-400">PDF already optimized</span>}
-                    </div>
-                  </div>
-                  <a href={processUrl} download={`compressed_${file.name}`}
-                    className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 block text-center shadow-lg shadow-green-500/20">
-                    <Download className="w-4 h-4 inline mr-1" /> Download Compressed
-                  </a>
-                </motion.div>
+              
+              {items.some(i => i.status === 'done') && (
+                <button onClick={downloadAll}
+                  className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-green-500/20">
+                  <Download className="w-5 h-5"/> Download All
+                </button>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Preview pane */}
-            <div className="lg:col-span-3">
-              <div className="bg-black/40 border border-white/5 rounded-3xl p-6 h-[700px] flex gap-4">
-                <div className="flex-[0.55] flex flex-col overflow-hidden border border-red-500/20 rounded-xl relative">
-                  <span className="absolute top-2 left-2 bg-red-900/80 text-red-200 px-3 py-1 rounded-full text-xs font-mono z-10 shadow-lg border border-red-500/30">
-                    Original · {fmtSize(oldSize)}
-                  </span>
-                  {pdfPreview && <iframe src={pdfPreview} className="w-full h-full bg-white border-0" title="PDF Preview" style={grayscale ? { filter: 'grayscale(1)' } : undefined} />}
-                </div>
+        {/* Queue / List */}
+        <div className="lg:col-span-3 space-y-6">
+          <div {...getRootProps()} className={cn(
+            "border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all duration-300",
+            isDragActive ? "border-red-400 bg-red-400/10 scale-105" : "border-slate-800 bg-slate-900/40 hover:border-slate-600"
+          )}>
+            <input {...getInputProps()} />
+            <div className="bg-red-500/20 p-6 rounded-full"><Upload className="w-10 h-10 text-red-400" /></div>
+            <p className="text-xl font-medium text-slate-200">Add PDFs for batch compression</p>
+            <p className="text-sm text-slate-500">100% private, browser-only processing</p>
+          </div>
 
-                {processUrl ? (
-                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                    className="flex-1 flex flex-col overflow-hidden border-2 border-green-500/50 rounded-xl relative shadow-2xl shadow-green-500/10">
-                    <span className="absolute top-2 right-2 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-mono z-10 shadow-lg">
-                      Compressed · {fmtSize(newSize)} {savedPct > 0 && `(↓${savedPct}%)`}
-                    </span>
-                    <iframe src={processUrl} className="w-full h-full bg-white border-0" title="Compressed PDF" />
-                  </motion.div>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center border border-dashed border-white/10 rounded-xl flex-col gap-4 text-slate-500">
-                    <FileArchive className="w-16 h-16 opacity-20 text-red-400" />
-                    <p className="text-sm">Choose a compression level and click Compress</p>
-                  </div>
-                )}
-              </div>
+          <div className="bg-black/40 border border-white/5 rounded-3xl p-6 min-h-[400px]">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Processing Queue</h4>
+              <span className="text-xs font-mono text-red-400 bg-red-400/10 px-3 py-1 rounded-full">{items.length} Files</span>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <div className="space-y-3">
+              <AnimatePresence initial={false}>
+                {items.length === 0 ? (
+                  <div className="h-48 flex flex-col items-center justify-center text-slate-600 gap-4 opacity-30">
+                    <FileText className="w-16 h-16" />
+                    <p>Queue is empty.</p>
+                  </div>
+                ) : (
+                  items.map((item) => (
+                    <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                      className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between group hover:border-red-500/30 transition-all">
+                      <div className="flex items-center gap-4 truncate flex-1">
+                        <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center flex-shrink-0 border border-red-500/20 relative">
+                          <FileText className="w-6 h-6 text-red-400" />
+                          {item.status === 'compressing' && (
+                            <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center">
+                              <Loader2 className="w-5 h-5 text-red-400 animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="truncate space-y-1">
+                          <p className="text-sm font-semibold text-slate-200 truncate" title={item.file.name}>{item.file.name}</p>
+                          <div className="flex items-center gap-2">
+                             <span className="text-[10px] text-slate-500 font-mono">{fmtSize(item.oldSize)}</span>
+                             {item.status === 'done' && (
+                               <>
+                                 <ArrowRight className="w-3 h-3 text-slate-700" />
+                                 <span className="text-[10px] text-green-400 font-bold font-mono">{fmtSize(item.newSize)}</span>
+                                 <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded ml-1">↓{item.savedPct}%</span>
+                               </>
+                             )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-4">
+                        {item.status === 'done' && item.resultUrl && (
+                          <a href={item.resultUrl} download={`compressed_${item.file.name}`}
+                            className="p-2 bg-green-500/10 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all shadow-lg">
+                            <Download className="w-5 h-5" />
+                          </a>
+                        )}
+                        {item.status === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+                        {item.status === 'done' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                        
+                        <button onClick={() => removeItem(item.id)}
+                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

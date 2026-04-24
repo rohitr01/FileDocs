@@ -21,7 +21,7 @@ import ImageRotateHelper from './pages/ImageRotateHelper'
 import PassportPhotoMaker from './pages/PassportPhotoMaker'
 import PDFPageNumberGen from './pages/PDFPageNumberGen'
 import SignatureResize from './pages/SignatureResize'
-import PhotoSignMerge from './pages/PhotoSignMerge'
+import IdentityMerger from './pages/PhotoAndSignMerger'
 import PhotoTextOverlay from './pages/PhotoTextOverlay'
 
 // Additional advanced integrations
@@ -62,8 +62,8 @@ const IMAGE_TOOLS = [
   { name: 'Upscale Image', path: '/image/upscale' },
   { name: 'Passport Maker', path: '/image/passport' },
   { name: 'Resize Signature', path: '/image/resize-signature' },
-  { name: 'Photo + Sign Merge', path: '/image/photo-sign-merge' },
-  { name: 'Photo Text Labeler', path: '/image/photo-text-labeler' },
+  { name: 'Photo and Sign Merger', path: '/image/photo-sign-merge' },
+  { name: 'Identity Labeler', path: '/image/photo-text-labeler' },
   { name: 'OCR - Text Extractor', path: '/image/ocr' },
   { name: 'Metadata Stripper', path: '/image/metadata-stripper' },
   { name: 'Smart Redaction', path: '/image/redaction' },
@@ -145,7 +145,7 @@ function App() {
           <Route path="/image/upscale" element={<ImageUpscale />} />
           <Route path="/image/remove-bg" element={<ImageRemoveBg />} />
           <Route path="/image/resize-signature" element={<SignatureResize />} />
-          <Route path="/image/photo-sign-merge" element={<PhotoSignMerge />} />
+          <Route path="/image/photo-sign-merge" element={<IdentityMerger />} />
           <Route path="/image/photo-text-labeler" element={<PhotoTextOverlay />} />
           <Route path="/image/ocr" element={<OCRExtractor />} />
           <Route path="/image/metadata-stripper" element={<MetadataStripper />} />
